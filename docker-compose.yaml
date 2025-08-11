@@ -1,0 +1,51 @@
+version: "3.9"
+
+services:
+  n8n:
+    container_name: n8n
+    image: docker.n8n.io/n8nio/n8n
+    environment:
+      - WEBHOOK_URL=${URL}
+      - TZ=${TIMEZONE}
+      - GENERIC_TIMEZONE=${TIMEZONE}
+    networks:
+      - n8n-network
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+  ngrok:
+    container_name: ngrok
+    image: ngrok/ngrok:latest
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_TOKEN}
+    command:
+      - "start"
+      - "--all"
+      - "--config"
+      - "/etc/ngrok.yml"
+    networks:
+      - n8n-network
+    volumes:
+      - ./ngrok.yml:/etc/ngrok.yml
+
+  waha:
+    container_name: waha
+    image: devlikeapro/waha:latest
+    environment:
+      WHATSAPP_HOOK_URL: https://mammoth-healthy-coral.ngrok-free.app/webhook/webhook
+      WHATSAPP_DEFAULT_ENGINE: GOWS
+      WHATSAPP_HOOK_EVENTS: message
+    networks:
+      - n8n-network
+    volumes:
+      - waha_sessions:/app/.sessions
+      - waha_media:/app/.media
+
+volumes:
+  n8n_data:
+  waha_sessions:
+  waha_media:
+
+networks:
+  n8n-network:
+    driver: bridge
