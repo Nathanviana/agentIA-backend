@@ -1,72 +1,175 @@
-# n8n with Ngrok Tunnel
+Aqui está um modelo de **README** que descreve como configurar e usar seu ambiente com **N8N**, **Waha** e **ngrok**. Este arquivo orienta como rodar e configurar o ambiente Docker, incluindo detalhes sobre as URLs, variáveis de ambiente e como fazer o teste. Além do fluxo do agente no n8n.
 
-This repository contains a Docker Compose setup for running n8n with Ngrok as a tunneling service. n8n is a workflow automation tool that allows you to connect different services and APIs. Ngrok exposes local servers behind NATs and firewalls to the public internet over secure tunnels.
+---
 
-## Prerequisites
+# **README - Integração N8N, Waha e ngrok**
 
-Before you begin, ensure you have the following installed:
-- Docker: [Get Docker](https://docs.docker.com/get-docker/)
-- Docker Compose: [Install Docker Compose](https://docs.docker.com/compose/install/)
+Este repositório configura um ambiente com **N8N**, **Waha** e **ngrok** usando **Docker Compose**. O objetivo é integrar o **Waha** para enviar mensagens via WhatsApp ao **N8N** usando webhooks expostos pelo **ngrok**.
 
-## Setup
+## **Pré-requisitos**
 
-1. **Clone the Repository**
+Antes de iniciar, certifique-se de que você tenha o seguinte instalado:
 
-   Clone this repository to your local machine:
+* **Docker** e **Docker Compose**
+* **Conta no ngrok** (para gerar o token ngrok)
+
+## **Configuração**
+
+1. **Clone este repositório** (se ainda não o fez):
+
    ```bash
-   git clone https://github.com/joffcom/n8n-ngrok.git
+   git clone https://github.com/Nathanviana/agentIA-backend.git
    ```
 
-2. **Ngrok Authentication**
+2. **Configure o arquivo `.env`**
 
-   You need to authenticate with Ngrok. If you don't have an Ngrok account, create one at [Ngrok](https://ngrok.com/). After creating an account, get your auth token from the Ngrok dashboard.
+   No diretório do projeto, crie um arquivo `.env` para definir suas variáveis de ambiente. Este arquivo deve conter:
 
-   Set your Ngrok auth token in the `.env` file:
-
-   ```sh
-   NGROK_TOKEN=XXXYYYZZZ
+   ```env
+   URL=https://from-ngrok.ngrok-free.app # URL pública do ngrok para o N8N
+   TIMEZONE=America/Sao_Paulo
+   NGROK_TOKEN=<Seu_Token_Ngrok>  # Token do ngrok para autenticação
    ```
 
-3. **Permanent Domain**
-   In your Ngrok Dashboard you can reserve a domain, You can do this under Cloud Edge > Domains. Once you have the domain add it to the `.env` file:
+3. **Verifique o arquivo `ngrok.yml`**
 
-   ```sh
-   URL=https://from-ngrok.ngrok-free.app
-   ```
+   Certifique-se de que o arquivo `ngrok.yml` esteja configurado corretamente. Ele deve estar configurado para criar os túneis desejados para **N8N** e **Waha**. Aqui está um exemplo de como deve ser:
 
-   This will also need to be added to the `ngrok.yml`
    ```yaml
    version: 2
    log_level: debug
    tunnels:
-       n8n:
-           proto: http
-           addr: n8n:5678
-           domain: from-ngrok.ngrok-free.app
+     n8n:
+       proto: http
+       addr: n8n:5678
+       domain: # UR pública do ngrok para o N8N
+     waha:
+       proto: http
+       addr: waha:3000
    ```
 
-3. **Configure n8n**
+## **Rodando o Docker Compose**
 
-   Optionally, you can configure n8n by modifying environment variables in the `docker-compose.yml` file under the `n8n` service.
+1. **Inicie os contêineres**:
 
-## Running the Application
+   Com o arquivo `.env` configurado, inicie os contêineres usando o **Docker Compose**:
 
-To run n8n with Ngrok, use the following command:
+   ```bash
+   docker-compose up -d --build
+   ```
+
+2. **Acesse os serviços**:
+
+   * **N8N** estará disponível em: <URL diponibilizada pelo ngrok>
+   * **Waha** estará disponível em: <URL diponibilizada pelo ngrok>
+
+   **ngrok** cria túneis para expor essas URLs publicamente, e você pode acessá-las diretamente.
+
+## **Configuração do Webhook**
+
+### **N8N**
+
+* No **N8N**, o webhook será configurado automaticamente para responder a eventos enviados pelo **Waha**.
+* **URL do Webhook** para o **N8N** (em caso de necessidade de personalização):
+
+  ```yaml
+  WEBHOOK_URL=https://mammoth-healthy-coral.ngrok-free.app/webhook/webhook
+  ```
+
+### **Waha**
+
+* Para o **Waha**, você precisa configurar a variável de ambiente `WHATSAPP_HOOK_URL` para a URL do **N8N** exposta pelo **ngrok**. Como exemplo, se o **ngrok** gerar a URL `https://mammoth-healthy-coral.ngrok-free.app`, a configuração no **Waha** seria:
+
+  ```yaml
+  WHATSAPP_HOOK_URL=${URL}
+  ```
+
+* A configuração completa para o **Waha** no `docker-compose.yml` é:
+
+  ```yaml
+  waha:
+    container_name: waha
+    image: devlikeapro/waha:latest
+    environment:
+      WHATSAPP_HOOK_URL: https://mammoth-healthy-coral.ngrok-free.app/webhook/webhook  # URL do N8N
+      WHATSAPP_DEFAULT_ENGINE: GOWS
+      WHATSAPP_HOOK_EVENTS: message
+    networks:
+      - n8n-network
+    volumes:
+      - waha_sessions:/app/.sessions
+      - waha_media:/app/.media
+  ```
+
+## **Testando a Configuração**
+
+### **Verifique o ngrok**
+
+Após rodar os contêineres, acesse os logs do **ngrok** para garantir que os túneis foram configurados corretamente:
 
 ```bash
-docker-compose up
+docker logs ngrok
 ```
 
-This command will start both n8n and Ngrok services. Ngrok will provide a URL that tunnels to your n8n instance.
+Você deve ver algo como:
 
-## Accessing n8n
+```
+Forwarding                    https://mammoth-healthy-coral.ngrok-free.app -> http://n8n:5678
+Forwarding                    https://32a24120b792.ngrok-free.app -> http://waha:3000
+```
 
-After running the Docker Compose command you can access n8n by navigating to this URL in your web browser.
+Isso indica que o **ngrok** está corretamente redirecionando o tráfego para o **N8N** e o **Waha**.
 
-## Stopping the Application
+### **Testar o Webhook no N8N**
 
-To stop the n8n and Ngrok services, use:
+Tente acessar o webhook do **N8N** diretamente com `curl` para verificar se ele responde corretamente:
 
 ```bash
-docker-compose down
+curl -X GET https://mammoth-healthy-coral.ngrok-free.app/webhook/webhook
 ```
+
+Se a URL do webhook estiver configurada corretamente no **Waha** e o fluxo de trabalho estiver ativo no **N8N**, você deve ver uma resposta bem-sucedida.
+
+### **Testar o Webhook no Waha**
+
+Envia uma mensagem ou evento de teste do **Waha** para verificar se o **N8N** está recebendo os webhooks corretamente.
+
+## **Problemas Comuns e Soluções**
+
+* **Timeout (ETIMEDOUT)**: Isso pode acontecer se a URL do webhook não estiver configurada corretamente ou se o **ngrok** não estiver gerando o túnel corretamente. Certifique-se de que os contêineres estão na mesma rede e que a URL do webhook no **Waha** aponta para a URL pública do **ngrok**.
+
+* **404 - Webhook não registrado**: Certifique-se de que o fluxo de trabalho no **N8N** que contém o webhook esteja **ativo** e tenha sido executado ao menos uma vez.
+
+## **Variáveis de Ambiente**
+
+As variáveis de ambiente necessárias para configurar o projeto incluem:
+
+* **`URL`**: URL pública do ngrok para o **N8N**.
+* **`TIMEZONE`**: Fuso horário para os serviços.
+* **`NGROK_TOKEN`**: Token de autenticação do ngrok.
+
+## **Comandos Importantes**
+
+* **Para parar os contêineres**:
+
+  ```bash
+  docker-compose down
+  ```
+
+* **Para rodar os contêineres novamente**:
+
+  ```bash
+  docker-compose up -d
+  ```
+
+* **Para visualizar os logs de um contêiner**:
+
+  ```bash
+  docker logs <nome_do_contêiner>
+  ```
+
+## **Conclusão**
+
+Com essa configuração, você terá **N8N**, **Waha** e **ngrok** rodando juntos, com o **ngrok** expondo o **N8N** e o **Waha** publicamente. Siga os passos para configurar corretamente as URLs do webhook e garantir que o fluxo de trabalho esteja ativo para que tudo funcione conforme esperado.
+
+Se tiver mais dúvidas ou problemas, fique à vontade para perguntar!
