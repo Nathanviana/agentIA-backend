@@ -11,7 +11,7 @@ services:
     networks:
       - n8n-network
     volumes:
-      - n8n_data:/home/node/.n8n
+      - n8n-ngrok-waha_n8n_data:/home/node/.n8n
 
   ngrok:
     container_name: ngrok
@@ -42,10 +42,10 @@ services:
       - waha_media:/app/.media
 
 volumes:
-  n8n_data:
+  n8n-ngrok-waha_n8n_data:
   waha_sessions:
   waha_media:
 
 networks:
-  n8n-network:
+  n8n-network: 
     driver: bridge
